@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Graph Plot | Intersections Finder</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="https://cdn-icons-png.flaticon.com/512/3667/3667362.png">
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Plotly.js (Basic version for faster loading) -->
+    <script src="https://cdn.plot.ly/plotly-basic-latest.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container shadow-lg">
+        <header>
+            <h1>Maths Graph Plotter</h1>
+            <p class="subtitle">Enter two functions to find their intersection points & visualize the curves.</p>
+        </header>
+
+        <section class="input-section">
+            <div class="input-group">
+                <label for="f1">Function 1 (e.g., y = x^2)</label>
+                <input type="text" id="f1" placeholder="y = x^2" value="y = x^2">
+            </div>
+            <div class="input-group">
+                <label for="f2">Function 2 (e.g., y = 2*x + 1)</label>
+                <input type="text" id="f2" placeholder="y = 2*x + 1" value="y = 2*x + 8">
+            </div>
+            <button id="plotBtn">
+                <span>Plot & Solve</span>
+            </button>
+        </section>
+
+        <div id="errorBox" class="error-message" style="color: #ef4444; font-weight: 500; margin-top: 1rem; text-align: center; display: none;"></div>
+
+        <div class="graph-wrapper" style="position: relative;">
+            <div id="graph" class="graph-display">
+                <div style="height:100%; display:flex; align-items:center; justify-content:center; color:#475569; font-weight: 500;">
+                    Click "Plot & Solve" to visualize
+                </div>
+            </div>
+        </div>
+
+        <section class="results-section" id="resultsSection" style="display: none;">
+            <h2>Intersection Points Found:</h2>
+            <div id="intersections" class="intersection-list">
+                <!-- Points go here -->
+            </div>
+        </section>
+
+        <footer style="margin-top: 3rem; text-align: center; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 1.5rem;">
+            <p class="designer-text">Designed by <span class="highlight">Rohit</span></p>
+        </footer>
+    </div>
+
+    <!-- Script to handle Ajax and Plotly Rendering -->
+    <script>
+        const plotBtn = document.getElementById('plotBtn');
+        const f1Input = document.getElementById('f1');
+        const f2Input = document.getElementById('f2');
+        const graphDiv = document.getElementById('graph');
+        const errorBox = document.getElementById('errorBox');
+        const resultsSection = document.getElementById('resultsSection');
+        const intersectionList = document.getElementById('intersections');
+
+        async function plotFunctions() {
+            const f1 = f1Input.value.trim();
+            const f2 = f2Input.value.trim();
+
+            if (!f1 || !f2) {
+                showError("Please enter both functions.");
+                return;
+            }
+
+            plotBtn.disabled = true;
+            plotBtn.innerHTML = "<span>Calculating...</span>";
+            errorBox.style.display = 'none';
+
+            try {
+                const response = await fetch('/plot', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ f1, f2 })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    const graphData = JSON.parse(data.graph);
+                    Plotly.newPlot(graphDiv, graphData.data, graphData.layout, {
+                        responsive: true,
+                        displaylogo: false
+                    });
+
+                    intersectionList.innerHTML = '';
+                    if (data.intersections && data.intersections.length > 0) {
+                        resultsSection.style.display = 'block';
+                        data.intersections.forEach(p => {
+                            const pill = document.createElement('div');
+                            pill.className = 'intersection-point';
+                            pill.textContent = `(${p.x.toFixed(2)}, ${p.y.toFixed(2)})`;
+                            intersectionList.appendChild(pill);
+                        });
+                    } else {
+                        const pill = document.createElement('div');
+                        pill.className = 'intersection-point';
+                        pill.style.color = '#94a3b8';
+                        pill.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+                        pill.textContent = "No real intersections found";
+                        intersectionList.appendChild(pill);
+                        resultsSection.style.display = 'block';
+                    }
+                }
+            } catch (err) {
+                showError("Something went wrong. check your connection.");
+            } finally {
+                plotBtn.disabled = false;
+                plotBtn.innerHTML = "<span>Plot & Solve</span>";
+            }
+        }
+
+        function showError(msg) {
+            errorBox.textContent = msg;
+            errorBox.style.display = 'block';
+        }
+
+        plotBtn.addEventListener('click', plotFunctions);
+
+        [f1Input, f2Input].forEach(input => {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') plotFunctions();
+            });
+        });
+    </script>
+</body>
+</html>
