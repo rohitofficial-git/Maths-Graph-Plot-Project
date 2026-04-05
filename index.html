@@ -68,17 +68,24 @@
                 const f1 = math.compile(f1Str);
                 const f2 = math.compile(f2Str);
 
-                // 1. Find Intersections (Numerical search)
+                // 1. Find Intersections (Refined numerical search)
                 const intersections = [];
-                const diff = (x) => f1.evaluate({x}) - f2.evaluate({x});
+                const diff = (val) => f1.evaluate({x: val}) - f2.evaluate({x: val});
                 
-                // Simple scan for sign changes to find roots
-                for (let x = -10; x <= 10; x += 0.5) {
+                // Scan with smaller steps and validation
+                for (let x = -12; x <= 12; x += 0.2) {
                     try {
-                        let root = findRoot(diff, x, x + 0.5);
+                        let root = findRoot(diff, x, x + 0.2);
                         if (root !== null) {
-                            const y = f1.evaluate({x: root});
-                            intersections.push({x: root, y: y});
+                            // VALIDATION: Ensure functions are actually equal at this point
+                            const y1 = f1.evaluate({x: root});
+                            const y2 = f2.evaluate({x: root});
+                            if (Math.abs(y1 - y2) < 0.01) {
+                                // DEDUPLICATION: Don't add the same point twice
+                                if (!intersections.some(p => Math.abs(p.x - root) < 0.1)) {
+                                    intersections.push({x: root, y: y1});
+                                }
+                            }
                         }
                     } catch(e) {}
                 }
