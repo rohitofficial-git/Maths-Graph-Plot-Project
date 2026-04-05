@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Graph Plotter | Live on GitHub</title>
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Plotly for Graphs -->
+    <script src="https://cdn.plot.ly/plotly-basic-latest.min.js"></script>
+    <!-- Math.js for Intersection Solving -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+    <style>
+        /* CSS Integrated for single-file simplicity */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #f8fafc; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
+        .container { width: 100%; max-width: 1000px; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 24px; padding: 2.5rem; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
+        header { text-align: center; margin-bottom: 2rem; }
+        h1 { font-size: 2.5rem; font-weight: 800; background: linear-gradient(to right, #6366f1, #a855f7, #ec4899); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+        .input-section { display: grid; grid-template-columns: 1fr 1fr auto; gap: 1.5rem; margin-bottom: 2rem; }
+        @media (max-width: 768px) { .input-section { grid-template-columns: 1fr; } }
+        .input-group { display: flex; flex-direction: column; }
+        label { font-size: 0.9rem; color: #cbd5e1; margin-bottom: 0.5rem; }
+        input { background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 12px; padding: 0.8rem; color: #fff; outline: none; }
+        button { background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; border: none; border-radius: 12px; padding: 0 1.5rem; font-weight: 600; cursor: pointer; height: 48px; align-self: flex-end; }
+        .graph-display { aspect-ratio: 16/9; background: rgba(15, 23, 42, 0.3); border-radius: 16px; margin-bottom: 2rem; }
+        .results-section { background: rgba(15, 23, 42, 0.4); border-radius: 16px; padding: 1.5rem; display: none; }
+        .intersection-list { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+        .point { background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 8px 15px; color: #10b981; font-weight: 600; }
+        footer { margin-top: 2rem; text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem; color: #94a3b8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
+        .highlight { background: linear-gradient(to right, #6366f1, #a855f7); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Maths Graph Plotter</h1>
+            <p style="color: #94a3b8;">Standalone Browser Version - Works on GitHub!</p>
+        </header>
+
+        <div class="input-section">
+            <div class="input-group">
+                <label>Function 1 (e.g., x^2)</label>
+                <input type="text" id="f1" value="x^2">
+            </div>
+            <div class="input-group">
+                <label>Function 2 (e.g., 2*x + 8)</label>
+                <input type="text" id="f2" value="2*x + 8">
+            </div>
+            <button onclick="calculateAndPlot()">Plot & Solve</button>
+        </div>
+
+        <div id="graph" class="graph-display"></div>
+
+        <div id="results" class="results-section">
+            <h2 style="font-size: 1.1rem;">Intersection Points:</h2>
+            <div id="intersections" class="intersection-list"></div>
+        </div>
+
+        <footer>Designed by <span class="highlight">Rohit</span></footer>
+    </div>
+
+    <script>
+        function calculateAndPlot() {
+            const f1Str = document.getElementById('f1').value;
+            const f2Str = document.getElementById('f2').value;
+            
+            try {
+                const f1 = math.compile(f1Str);
+                const f2 = math.compile(f2Str);
+
+                // 1. Find Intersections (Numerical search)
+                const intersections = [];
+                const diff = (x) => f1.evaluate({x}) - f2.evaluate({x});
+                
+                // Simple scan for sign changes to find roots
+                for (let x = -10; x <= 10; x += 0.5) {
+                    try {
+                        let root = findRoot(diff, x, x + 0.5);
+                        if (root !== null) {
+                            const y = f1.evaluate({x: root});
+                            intersections.push({x: root, y: y});
+                        }
+                    } catch(e) {}
+                }
+
+                // 2. Generate Plot Data
+                const xValues = [];
+                const y1Values = [];
+                const y2Values = [];
+                for (let x = -12; x <= 12; x += 0.1) {
+                    xValues.push(x);
+                    y1Values.push(f1.evaluate({x}));
+                    y2Values.push(f2.evaluate({x}));
+                }
+
+                const data = [
+                    { x: xValues, y: y1Values, name: 'f1(x)', line: {color: '#6366f1', width: 3} },
+                    { x: xValues, y: y2Values, name: 'f2(x)', line: {color: '#ef4444', width: 3} },
+                    {
+                        x: intersections.map(p => p.x),
+                        y: intersections.map(p => p.y),
+                        mode: 'markers',
+                        name: 'Intersections',
+                        marker: {color: '#10b981', size: 12, line: {width: 2, color: '#fff'}}
+                    }
+                ];
+
+                const layout = {
+                    template: 'plotly_dark',
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    plot_bgcolor: 'rgba(0,0,0,0)',
+                    margin: {t: 20, b: 40, l: 40, r: 20},
+                    xaxis: {gridcolor: '#334155'},
+                    yaxis: {gridcolor: '#334155'}
+                };
+
+                Plotly.newPlot('graph', data, layout, {responsive: true, displaylogo: false});
+
+                // Display Results
+                const resDiv = document.getElementById('results');
+                const list = document.getElementById('intersections');
+                list.innerHTML = '';
+                if (intersections.length > 0) {
+                    resDiv.style.display = 'block';
+                    intersections.forEach(p => {
+                        const span = document.createElement('div');
+                        span.className = 'point';
+                        span.innerText = `(${p.x.toFixed(2)}, ${p.y.toFixed(2)})`;
+                        list.appendChild(span);
+                    });
+                } else {
+                    resDiv.style.display = 'block';
+                    list.innerHTML = '<span style="color: #94a3b8">No intersections found in range.</span>';
+                }
+
+            } catch (e) {
+                alert("Error in function! Please check your syntax.");
+            }
+        }
+
+        // Bisection method for root finding
+        function findRoot(f, a, b) {
+            if (f(a) * f(b) > 0) return null;
+            let mid = a;
+            for (let i = 0; i < 20; i++) {
+                mid = (a + b) / 2;
+                if (f(mid) * f(a) < 0) b = mid;
+                else a = mid;
+            }
+            return mid;
+        }
+
+        // Initial Plot
+        calculateAndPlot();
+    </script>
+</body>
+</html>
