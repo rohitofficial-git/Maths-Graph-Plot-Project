@@ -8,8 +8,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Plotly for Graphs -->
     <script src="https://cdn.plot.ly/plotly-basic-latest.min.js"></script>
-    <!-- Math.js for Intersection Solving -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
     <style>
         /* CSS Integrated for single-file simplicity */
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
@@ -40,6 +38,8 @@
         .point { background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 8px 15px; color: #10b981; font-weight: 600; }
         footer { margin-top: 2rem; text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem; color: #94a3b8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
         .highlight { background: linear-gradient(to right, #6366f1, #a855f7); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; }
+        .preset-btn { background: rgba(255, 255, 255, 0.05); color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.1); padding: 5px 12px; border-radius: 8px; font-size: 0.75rem; cursor: pointer; transition: 0.3s; }
+        .preset-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
     </style>
 </head>
 <body>
@@ -50,14 +50,30 @@
 
         <div class="input-section">
             <div class="input-group">
-                <label>Function 1 (e.g., x^2)</label>
-                <input type="text" id="f1" value="x^2">
+                <label>Function 1 (f1)</label>
+                <input type="text" id="f1" value="x**2" placeholder="e.g. x**2">
             </div>
             <div class="input-group">
-                <label>Function 2 (e.g., 2*x + 8)</label>
-                <input type="text" id="f2" value="2*x + 8">
+                <label>Function 2 (f2)</label>
+                <input type="text" id="f2" value="2*x + 8" placeholder="e.g. 2*x + 8">
+            </div>
+            <div class="input-group" style="width: 80px;">
+                <label>X-Min</label>
+                <input type="number" id="xmin" value="-12">
+            </div>
+            <div class="input-group" style="width: 80px;">
+                <label>X-Max</label>
+                <input type="number" id="xmax" value="12">
             </div>
             <button onclick="calculateAndPlot()">Plot & Solve</button>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 2rem; justify-content: center; flex-wrap: wrap;">
+            <span style="color: #cbd5e1; align-self: center; font-size: 0.8rem;">Presets:</span>
+            <button class="preset-btn" onclick="setPreset('x**2', '2*x + 3')">Quadratic</button>
+            <button class="preset-btn" onclick="setPreset('sin(x)', '0.5*x')">Trig</button>
+            <button class="preset-btn" onclick="setPreset('exp(x/4)', 'x + 2')">Exponential</button>
+            <button class="preset-btn" onclick="setPreset('sqrt(abs(x))', '0.5*x + 1')">Roots</button>
         </div>
 
         <div id="graph" class="graph-display"></div>
@@ -71,52 +87,32 @@
     </div>
 
     <script>
-        function calculateAndPlot() {
+        async function calculateAndPlot() {
             const f1Str = document.getElementById('f1').value;
             const f2Str = document.getElementById('f2').value;
-            
+            const xmin = parseFloat(document.getElementById('xmin').value) || -12;
+            const xmax = parseFloat(document.getElementById('xmax').value) || 12;
+
             try {
-                const f1 = math.compile(f1Str);
-                const f2 = math.compile(f2Str);
+                // FETCH FROM BACKEND (Can be local or live)
+                const response = await fetch('/calculate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ f1: f1Str, f2: f2Str, x_range: [xmin, xmax] })
+                });
 
-                // 1. Find Intersections (Refined numerical search)
-                const intersections = [];
-                const diff = (val) => f1.evaluate({x: val}) - f2.evaluate({x: val});
-                
-                // Scan with smaller steps and validation
-                for (let x = -12; x <= 12; x += 0.2) {
-                    try {
-                        let root = findRoot(diff, x, x + 0.2);
-                        if (root !== null) {
-                            // VALIDATION: Ensure functions are actually equal at this point
-                            const y1 = f1.evaluate({x: root});
-                            const y2 = f2.evaluate({x: root});
-                            if (Math.abs(y1 - y2) < 0.01) {
-                                // DEDUPLICATION: Don't add the same point twice
-                                if (!intersections.some(p => Math.abs(p.x - root) < 0.1)) {
-                                    intersections.push({x: root, y: y1});
-                                }
-                            }
-                        }
-                    } catch(e) {}
-                }
+                if (!response.ok) throw new Error("Backend Error");
+                const result = await response.json();
 
-                // 2. Generate Plot Data
-                const xValues = [];
-                const y1Values = [];
-                const y2Values = [];
-                for (let x = -12; x <= 12; x += 0.1) {
-                    xValues.push(x);
-                    y1Values.push(f1.evaluate({x}));
-                    y2Values.push(f2.evaluate({x}));
-                }
+                if (result.error) throw new Error(result.error);
 
+                // 2. Generate Plot Data from result
                 const data = [
-                    { x: xValues, y: y1Values, name: 'f1(x)', line: {color: '#6366f1', width: 3} },
-                    { x: xValues, y: y2Values, name: 'f2(x)', line: {color: '#ef4444', width: 3} },
+                    { x: result.x, y: result.y1, name: 'f1(x)', line: {color: '#6366f1', width: 3} },
+                    { x: result.x, y: result.y2, name: 'f2(x)', line: {color: '#ef4444', width: 3} },
                     {
-                        x: intersections.map(p => p.x),
-                        y: intersections.map(p => p.y),
+                        x: result.intersections.map(p => p.x),
+                        y: result.intersections.map(p => p.y),
                         mode: 'markers',
                         name: 'Intersections',
                         marker: {color: '#10b981', size: 12, line: {width: 2, color: '#fff'}}
@@ -138,9 +134,10 @@
                 const resDiv = document.getElementById('results');
                 const list = document.getElementById('intersections');
                 list.innerHTML = '';
-                if (intersections.length > 0) {
+                
+                if (result.intersections.length > 0) {
                     resDiv.style.display = 'block';
-                    intersections.forEach(p => {
+                    result.intersections.forEach(p => {
                         const span = document.createElement('div');
                         span.className = 'point';
                         span.innerText = `(${p.x.toFixed(2)}, ${p.y.toFixed(2)})`;
@@ -152,20 +149,14 @@
                 }
 
             } catch (e) {
-                alert("Error in function! Please check your syntax.");
+                alert("Error connecting to Python backend! Please make sure app.py is running.\n\nError: " + e.message);
             }
         }
 
-        // Bisection method for root finding
-        function findRoot(f, a, b) {
-            if (f(a) * f(b) > 0) return null;
-            let mid = a;
-            for (let i = 0; i < 20; i++) {
-                mid = (a + b) / 2;
-                if (f(mid) * f(a) < 0) b = mid;
-                else a = mid;
-            }
-            return mid;
+        function setPreset(f1, f2) {
+            document.getElementById('f1').value = f1;
+            document.getElementById('f2').value = f2;
+            calculateAndPlot();
         }
 
         // Initial Plot
