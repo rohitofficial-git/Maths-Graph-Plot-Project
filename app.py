@@ -17,9 +17,10 @@ def calculate():
     f1 = data.get('f1', 'x^2')
     f2 = data.get('f2', '2*x + 8')
     x_range = data.get('x_range', [-12, 12])
+    use_degrees = data.get('use_degrees', False)
     
     try:
-        plot_data = math_service.get_plot_data(f1, f2, x_range)
+        plot_data = math_service.get_plot_data(f1, f2, x_range, use_degrees=use_degrees)
         return jsonify(plot_data)
     except Exception as e:
         return jsonify({"error": str(e)}), 400

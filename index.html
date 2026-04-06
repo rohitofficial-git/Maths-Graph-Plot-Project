@@ -65,6 +65,12 @@
                 <label>X-Max</label>
                 <input type="number" id="xmax" value="12">
             </div>
+            <div class="input-group" style="width: 100px;">
+                <label>Trig Unit</label>
+                <div style="display: flex; gap: 5px;">
+                    <button id="unitBtn" onclick="toggleUnit()" style="padding: 0 10px; height: 35px; width: 100%; font-size: 0.7rem; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);">Radians</button>
+                </div>
+            </div>
             <button onclick="calculateAndPlot()">Plot & Solve</button>
         </div>
 
@@ -98,7 +104,12 @@
                 const response = await fetch('/calculate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ f1: f1Str, f2: f2Str, x_range: [xmin, xmax] })
+                    body: JSON.stringify({ 
+                        f1: f1Str, 
+                        f2: f2Str, 
+                        x_range: [xmin, xmax],
+                        use_degrees: isDegrees 
+                    })
                 });
 
                 if (!response.ok) throw new Error("Backend Error");
@@ -151,6 +162,14 @@
             } catch (e) {
                 alert("Error connecting to Python backend! Please make sure app.py is running.\n\nError: " + e.message);
             }
+        }
+
+        let isDegrees = false;
+        function toggleUnit() {
+            isDegrees = !isDegrees;
+            document.getElementById('unitBtn').innerText = isDegrees ? "Degrees" : "Radians";
+            document.getElementById('unitBtn').style.borderColor = isDegrees ? "#10b981" : "rgba(255,255,255,0.2)";
+            calculateAndPlot();
         }
 
         function setPreset(f1, f2) {
